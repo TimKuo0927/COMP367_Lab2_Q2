@@ -1,10 +1,11 @@
 pipeline {
     agent any
-    
-    tools {
-        maven 'MAVEN'
+
+    environment {
+        DOCKERHUB_CREDENTIALS = 'dockerhub-cred'
+        IMAGE_NAME = 'yentingk/comp367-webapp'
     }
-    
+
     stages {
 
         stage('Checkout') {
@@ -13,21 +14,32 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Maven Project') {
             steps {
                 bat 'mvn clean package'
             }
         }
 
-        stage('Test') {
+        stage('Docker Login') {
             steps {
-                bat 'mvn test'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred',
+                usernameVariable: 'DOCKER_USER',
+                passwordVariable: 'DOCKER_PASS')]) {
+
+                    bat 'docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
+                }
             }
         }
 
-        stage('Archive') {
+        stage('Docker Build') {
             steps {
-                archiveArtifacts artifacts: 'target/*.war', fingerprint: true
+                bat 'docker build -t %IMAGE_NAME% .'
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat 'docker push %IMAGE_NAME%'
             }
         }
     }
